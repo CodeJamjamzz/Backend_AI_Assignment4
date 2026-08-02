@@ -1,5 +1,7 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -18,3 +20,36 @@ else:
     print("Warning: Supabase credentials are not properly set in the .env file.")
 
 app = FastAPI(title="Auth API")
+
+class UserCredentials(BaseModel):
+    email: str
+    password: str
+
+@app.post("/auth/signup", status_code=status.HTTP_201_CREATED)
+def signup(credentials: UserCredentials):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database client not configured")
+    try:
+        res = supabase.auth.sign_up({
+            "email": credentials.email,
+            "password": credentials.password
+        })
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@app.post("/auth/login")
+def login(credentials: UserCredentials):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Database client not configured")
+    try:
+        res = supabase.auth.sign_in_with_password({
+            "email": credentials.email,
+            "password": credentials.password
+        })
+        return res
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "Invalid login credentials"}
+        )
